@@ -1,0 +1,161 @@
+* { box-sizing: border-box; }
+
+body {
+    font-family: "Microsoft YaHei", Arial, sans-serif;
+    background: #f5f6f8;
+    margin: 0;
+    color: #333;
+}
+
+.navbar {
+    background: #fff;
+    border-bottom: 1px solid #e8e8e8;
+    padding: 0 24px;
+    height: 56px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.navbar .brand { font-size: 17px; font-weight: bold; color: #2f6fed; text-decoration: none; }
+.navbar .menu { display: flex; align-items: center; gap: 18px; }
+.navbar .menu a { color: #555; text-decoration: none; font-size: 14px; }
+.navbar .menu a:hover { color: #2f6fed; }
+.navbar .balance { font-size: 14px; color: #1a9c5b; }
+
+.container { max-width: 960px; margin: 28px auto; padding: 0 20px; }
+
+.card { background: #fff; border-radius: 8px; padding: 28px; box-shadow: 0 2px 12px rgba(0, 0, 0, .06); }
+.form-card { max-width: 440px; margin: 0 auto; }
+
+h1 { font-size: 20px; margin: 0 0 20px; }
+h2 { font-size: 16px; margin: 0 0 14px; }
+
+label { display: block; font-size: 13px; color: #666; margin-bottom: 6px; }
+
+input, textarea, select {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #dcdcdc;
+    border-radius: 4px;
+    margin-bottom: 16px;
+    font-size: 14px;
+    font-family: inherit;
+    outline: none;
+}
+
+input:focus, textarea:focus { border-color: #2f6fed; }
+
+button {
+    padding: 10px 22px;
+    border: 0;
+    border-radius: 4px;
+    background: #2f6fed;
+    color: #fff;
+    font-size: 14px;
+    cursor: pointer;
+}
+
+button:disabled { background: #9bb4e8; cursor: not-allowed; }
+button.ghost { background: #fff; color: #2f6fed; border: 1px solid #2f6fed; }
+button.danger { background: #d64545; }
+
+.btn {
+    display: inline-block;
+    padding: 10px 22px;
+    border-radius: 4px;
+    background: #2f6fed;
+    color: #fff;
+    font-size: 14px;
+    text-decoration: none;
+    border: 0;
+    cursor: pointer;
+}
+
+.btn.ghost { background: #fff; color: #2f6fed; border: 1px solid #2f6fed; }
+.btn.center { display: block; width: 200px; margin: 0 auto; text-align: center; }
+
+.msg { font-size: 13px; min-height: 18px; margin-top: 10px; }
+.ok { color: #1a9c5b; }
+.err { color: #d64545; }
+.muted { color: #999; font-size: 13px; }
+
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; }
+
+.auction-card {
+    background: #fff;
+    border-radius: 8px;
+    padding: 18px;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, .06);
+    text-decoration: none;
+    color: inherit;
+    display: block;
+}
+
+.auction-card:hover { box-shadow: 0 4px 18px rgba(0, 0, 0, .12); }
+.auction-card .name { font-size: 16px; font-weight: bold; margin-bottom: 12px; }
+
+.price { color: #d64545; font-size: 22px; font-weight: bold; }
+.price small { font-size: 12px; color: #999; font-weight: normal; }
+
+.row { display: flex; justify-content: space-between; align-items: baseline; margin-top: 10px; font-size: 13px; color: #777; }
+
+.tag { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 12px; }
+.tag.ACTIVE { background: #e6f4ec; color: #1a9c5b; }
+.tag.ENDED { background: #f0f0f0; color: #888; }
+.tag.CANCELLED { background: #fdeaea; color: #d64545; }
+
+.countdown { font-size: 13px; color: #2f6fed; }
+.countdown.urgent { color: #d64545; font-weight: bold; }
+
+.search { display: flex; gap: 10px; margin-bottom: 20px; }
+.search input { margin-bottom: 0; }
+
+.bid-box { display: flex; gap: 10px; align-items: flex-start; }
+.bid-box input { margin-bottom: 0; }
+
+.bid-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 10px 0;
+    border-bottom: 1px solid #f0f0f0;
+    font-size: 14px;
+}
+
+.bid-item:last-child { border-bottom: 0; }
+.bid-item .who { color: #555; }
+.bid-item .money { color: #d64545; font-weight: bold; }
+
+.toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; }
+
+/* ---------- 实时推送相关 ---------- */
+.live { font-size: 12px; color: #bbb; margin-right: 8px; }
+.live.on { color: #1a9c5b; }
+
+#toasts {
+    position: fixed;
+    top: 70px;
+    right: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    z-index: 99;
+}
+
+.toast {
+    background: #333;
+    color: #fff;
+    padding: 10px 16px;
+    border-radius: 4px;
+    font-size: 14px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, .2);
+    animation: toastIn .2s ease-out;
+}
+
+.toast.ok { background: #1a9c5b; }
+.toast.err { background: #d64545; }
+
+@keyframes toastIn {
+    from { opacity: 0; transform: translateX(20px); }
+    to { opacity: 1; transform: translateX(0); }
+}

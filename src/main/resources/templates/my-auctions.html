@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>我的拍卖 - 实时拍卖行</title>
+    <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<div class="navbar">
+    <a class="brand" href="/">实时拍卖行</a>
+    <div class="menu">
+        <a href="/auctions">拍卖大厅</a>
+        <a href="/auctions/create">发布拍卖</a>
+        <a href="/my/auctions">我的拍卖</a>
+    </div>
+    <div class="menu" id="navUser"></div>
+</div>
+
+<div class="container">
+    <div class="toolbar">
+        <h1 style="margin:0;">我发布的拍卖</h1>
+        <a class="btn" href="/auctions/create">发布拍卖</a>
+    </div>
+
+    <div id="list" class="grid"></div>
+    <p id="empty" class="muted" style="display:none; text-align:center; padding:40px 0;">
+        你还没有发布过拍卖
+    </p>
+</div>
+
+<script src="/app.js"></script>
+<script>
+    var list = document.getElementById("list");
+    var empty = document.getElementById("empty");
+
+    function load() {
+        api("/api/auctions/mine").then(function (result) {
+            if (result.code !== 200) {
+                empty.style.display = "block";
+                empty.innerText = result.message;
+                return;
+            }
+            render(result.data || []);
+        });
+    }
+
+    function render(items) {
+        list.innerHTML = "";
+        if (items.length === 0) {
+            empty.style.display = "block";
+            return;
+        }
+        empty.style.display = "none";
+
+        items.forEach(function (item) {
+            var card = document.createElement("div");
+            card.className = "auction-card";
+            card.innerHTML =
+                '<div class="name">' + escapeHtml(item.itemName) + '</div>' +
+                '<div class="row" style="margin-top:0;"><span class="tag ' + item.status + '">' +
+                escapeHtml(item.statusName) + '</span>' +
+                '<span class="price" style="font-size:16px;">¥' + money(item.nowPrice) + '</span></div>' +
+                '<div class="row"><span>出价 ' + item.bidCount + ' 次</span>' +
+                '<span class="countdown" data-end="' + escapeHtml(item.endTime) + '"></span></div>' +
+                '<div class="row" style="margin-top:14px;">' +
+                '<a class="btn ghost" style="padding:6px 14px; font-size:13px;" href="/auctions/' + item.id + '">查看</a>' +
+                (item.status === "ACTIVE" && item.bidCount === 0
+                    ? '<button class="danger" style="padding:6px 14px; font-size:13px;" data-cancel="' + item.id + '">取消</button>'
+                    : '') +
+                '</div>';
+
+            if (item.status === "ACTIVE" && item.bidCount === 0) {
+                card.querySelector("[data-cancel]").onclick = function () {
+                    post("/api/auctions/" + item.id + "/cancel", {}).then(function (result) {
+                        if (result.code === 200) {
+                            load();
+                        } else {
+                            alert(result.message);
+                        }
+                    });
+                };
+            }
+
+            list.appendChild(card);
+        });
+
+        tick();
+    }
+
+    function tick() {
+        document.querySelectorAll(".countdown").forEach(function (node) {
+            node.innerText = remainText(node.getAttribute("data-end"));
+        });
+    }
+
+    load();
+    setInterval(tick, 1000);
+</script>
+</body>
+</html>

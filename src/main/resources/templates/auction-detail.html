@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>拍卖详情 - 实时拍卖行</title>
+    <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<div class="navbar">
+    <a class="brand" href="/">实时拍卖行</a>
+    <div class="menu">
+        <a href="/auctions">拍卖大厅</a>
+        <a href="/auctions/create">发布拍卖</a>
+        <a href="/my/auctions">我的拍卖</a>
+    </div>
+    <div class="menu" id="navUser"></div>
+</div>
+
+<div class="container">
+    <div class="card" style="margin-bottom:20px;">
+        <div class="toolbar">
+            <h1 id="itemName" style="margin:0;"></h1>
+            <span>
+                <span id="live" class="live"></span>
+                <span id="status" class="tag"></span>
+            </span>
+        </div>
+
+        <div class="row" style="margin-top:0;">
+            <span>卖家：<span id="sellerName"></span></span>
+            <span id="buyNowBox"></span>
+        </div>
+
+        <div style="margin:22px 0 6px;">
+            <span class="price" id="nowPrice"></span>
+            <small class="muted"> 当前价</small>
+        </div>
+        <div class="row">
+            <span>起拍价 ¥<span id="startPrice"></span></span>
+            <span>出价 <span id="bidCount">0</span> 次</span>
+        </div>
+
+        <div class="row" style="font-size:15px; margin-top:16px;">
+            <span>剩余时间：<span class="countdown" id="countdown"></span></span>
+            <span id="bidderName" class="muted"></span>
+        </div>
+
+        <hr style="border:0; border-top:1px solid #f0f0f0; margin:22px 0;">
+
+        <p class="muted" id="description" style="margin-bottom:20px;"></p>
+
+        <div class="bid-box">
+            <input id="amount" type="number" step="0.01" placeholder="输入你的出价">
+            <button id="bidBtn" style="white-space:nowrap;">出价</button>
+        </div>
+        <div class="msg" id="msg"></div>
+    </div>
+
+    <div class="card">
+        <h2>出价记录</h2>
+        <div id="bids"><p class="muted">还没有人出价</p></div>
+    </div>
+</div>
+
+<script src="/lib/sockjs.min.js"></script>
+<script src="/lib/stomp.umd.min.js"></script>
+<script src="/app.js"></script>
+<script>
+    var itemId = window.location.pathname.split("/").pop();
+    var item = null;
+    var myUserId = null;
+
+    // ---------- 渲染 ----------
+
+    function loadItem() {
+        api("/api/auctions/" + itemId).then(function (result) {
+            if (result.code !== 200) {
+                document.getElementById("itemName").innerText = result.message;
+                return;
+            }
+            item = result.data;
+            paintItem();
+        });
+    }
+
+    // 只把内存里的 item 画到页面上，不发请求。
+    // 跟 loadItem 拆开，是为了让收到推送时能直接改 item 再重画，不用再走一趟 HTTP。
+    function paintItem() {
+        document.getElementById("itemName").innerText = item.itemName;
+        document.getElementById("sellerName").innerText = item.sellerName;
+        document.getElementById("nowPrice").innerText = "¥" + money(item.nowPrice);
+        document.getElementById("startPrice").innerText = money(item.startPrice);
+        document.getElementById("bidCount").innerText = item.bidCount;
+        document.getElementById("description").innerText = item.description || "卖家没有填写描述";
+        document.getElementById("buyNowBox").innerText =
+            item.buyNowPrice ? "一口价 ¥" + money(item.buyNowPrice) : "未设一口价";
+        document.getElementById("bidderName").innerText =
+            item.currentBidderName ? "当前最高：" + item.currentBidderName : "";
+
+        var tag = document.getElementById("status");
+        tag.className = "tag " + item.status;
+        tag.innerText = item.statusName;
+
+        if (item.status !== "ACTIVE") {
+            document.getElementById("bidBtn").disabled = true;
+            document.getElementById("amount").disabled = true;
+        }
+    }
+
+    function loadBids() {
+        api("/api/auctions/" + itemId + "/bids").then(function (result) {
+            var bids = result.data || [];
+            var box = document.getElementById("bids");
+            if (bids.length === 0) {
+                box.innerHTML = '<p class="muted">还没有人出价</p>';
+                return;
+            }
+            box.innerHTML = "";
+            bids.forEach(function (bid) {
+                var row = document.createElement("div");
+                row.className = "bid-item";
+                row.innerHTML =
+                    '<span class="who">' + escapeHtml(bid.bidderName) + '</span>' +
+                    '<span class="money">¥' + money(bid.amount) + '</span>';
+                box.appendChild(row);
+            });
+        });
+    }
+
+    function tick() {
+        if (!item) {
+            return;
+        }
+        var node = document.getElementById("countdown");
+        node.innerText = remainText(item.endTime);
+        node.className = remainSeconds(item.endTime) < 120 ? "countdown urgent" : "countdown";
+    }
+
+    // ---------- 实时推送 ----------
+
+    function setLive(on, text) {
+        var node = document.getElementById("live");
+        node.className = on ? "live on" : "live";
+        node.innerText = text;
+    }
+
+    function toast(text, kind) {
+        var box = document.createElement("div");
+        box.className = "toast " + (kind || "");
+        box.innerText = text;
+
+        var holder = document.getElementById("toasts");
+        if (!holder) {
+            holder = document.createElement("div");
+            holder.id = "toasts";
+            document.body.appendChild(holder);
+        }
+        holder.appendChild(box);
+        setTimeout(function () { box.remove(); }, 3200);
+    }
+
+    function connectRealtime() {
+        var client = new StompJs.Client({
+            webSocketFactory: function () { return new SockJS("/ws"); },
+            reconnectDelay: 3000,
+            onConnect: function () {
+                setLive(true, "● 实时");
+                // 整个拍卖房间的广播：有人出价、拍卖结束
+                client.subscribe("/topic/auction/" + itemId, onRoomMessage);
+                // 点对点：只有我被顶掉的时候才会收到
+                if (myUserId) {
+                    client.subscribe("/topic/auction/" + itemId + "/user/" + myUserId, onOutbid);
+                }
+            },
+            onWebSocketClose: function () {
+                setLive(false, "○ 掉线，重连中");
+            }
+        });
+        client.activate();
+    }
+
+    function onRoomMessage(frame) {
+        var message = JSON.parse(frame.body);
+
+        if (message.type === "NEW_BID") {
+            // 直接拿推送过来的数字改本地 item，再重画，不重新请求接口
+            item.nowPrice = message.amount;
+            item.bidCount = message.bidCount;
+            item.endTime = message.newEndTime;
+            item.currentBidderName = message.bidderName;
+            paintItem();
+            loadBids();
+            toast(message.bidderName + " 出价 ¥" + money(message.amount));
+
+        } else if (message.type === "AUCTION_ENDED") {
+            item.status = message.winnerName ? "ENDED" : "CANCELLED";
+            item.statusName = message.winnerName ? "已结束" : "已流拍";
+            item.currentBidderName = message.winnerName;
+            paintItem();
+            if (message.winnerName) {
+                toast("恭喜 " + message.winnerName + " 以 ¥" + money(message.finalPrice) + " 竞得", "ok");
+            } else {
+                toast("拍卖结束，无人成交");
+            }
+        }
+    }
+
+    function onOutbid(frame) {
+        var message = JSON.parse(frame.body);
+        toast(message.message + "！当前价 ¥" + money(message.newPrice), "err");
+    }
+
+    // ---------- 交互 ----------
+
+    document.getElementById("bidBtn").onclick = function () {
+        var amount = document.getElementById("amount").value;
+        var msg = document.getElementById("msg");
+
+        msg.className = "msg";
+        msg.innerText = "提交中...";
+
+        post("/api/auctions/" + itemId + "/bid", {amount: amount}).then(function (result) {
+            if (result.code === 200) {
+                msg.className = "msg ok";
+                msg.innerText = result.message;
+                document.getElementById("amount").value = "";
+                loadItem();
+                loadBids();
+            } else {
+                msg.className = "msg err";
+                msg.innerText = result.message;
+            }
+        }).catch(function () {
+            msg.className = "msg err";
+            msg.innerText = "请求失败，请确认服务已启动";
+        });
+    };
+
+    // ---------- 启动 ----------
+
+    loadItem();
+    loadBids();
+    setInterval(tick, 1000);
+
+    // 先问清楚"我是谁"，才能订阅那个只发给自己的频道
+    api("/api/users/me").then(function (result) {
+        if (result.code === 200) {
+            myUserId = result.data.id;
+        }
+        connectRealtime();
+    });
+</script>
+</body>
+</html>

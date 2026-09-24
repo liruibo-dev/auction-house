@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>登录 - 实时拍卖行</title>
+    <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<div class="navbar">
+    <a class="brand" href="/">实时拍卖行</a>
+    <div class="menu">
+        <a href="/auctions">拍卖大厅</a>
+    </div>
+    <div class="menu" id="navUser"></div>
+</div>
+
+<div class="container">
+    <div class="card form-card">
+        <h1>登录</h1>
+
+        <label for="username">用户名</label>
+        <input id="username" type="text" placeholder="请输入用户名">
+
+        <label for="password">密码</label>
+        <input id="password" type="password" placeholder="请输入密码">
+
+        <button id="submit" style="width:100%;">登录</button>
+        <div class="msg" id="msg"></div>
+
+        <p class="muted" style="text-align:center; margin-top:16px;">
+            还没有账号？<a href="/register">去注册</a>
+        </p>
+    </div>
+</div>
+
+<script src="/app.js"></script>
+<script>
+    var button = document.getElementById("submit");
+    var msg = document.getElementById("msg");
+
+    function submit() {
+        button.disabled = true;
+        msg.className = "msg";
+        msg.innerText = "提交中...";
+
+        post("/api/users/login", {
+            username: document.getElementById("username").value,
+            password: document.getElementById("password").value
+        }).then(function (result) {
+            button.disabled = false;
+            if (result.code === 200) {
+                msg.className = "msg ok";
+                msg.innerText = result.message + "，正在跳转...";
+                window.location.href = "/auctions";
+            } else {
+                msg.className = "msg err";
+                msg.innerText = result.message;
+            }
+        }).catch(function () {
+            button.disabled = false;
+            msg.className = "msg err";
+            msg.innerText = "请求失败，请确认服务已启动";
+        });
+    }
+
+    button.onclick = submit;
+    document.getElementById("password").onkeydown = function (event) {
+        if (event.key === "Enter") {
+            submit();
+        }
+    };
+</script>
+</body>
+</html>

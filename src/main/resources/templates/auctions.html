@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>拍卖大厅 - 实时拍卖行</title>
+    <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<div class="navbar">
+    <a class="brand" href="/">实时拍卖行</a>
+    <div class="menu">
+        <a href="/auctions">拍卖大厅</a>
+        <a href="/auctions/create">发布拍卖</a>
+        <a href="/my/auctions">我的拍卖</a>
+    </div>
+    <div class="menu" id="navUser"></div>
+</div>
+
+<div class="container">
+    <div class="toolbar">
+        <h1 style="margin:0;">拍卖大厅</h1>
+        <a class="btn" href="/auctions/create">发布拍卖</a>
+    </div>
+
+    <div class="search">
+        <input id="keyword" type="text" placeholder="搜索物品名称">
+        <button id="searchBtn">搜索</button>
+    </div>
+
+    <div id="list" class="grid"></div>
+    <p id="empty" class="muted" style="display:none; text-align:center; padding:40px 0;">暂时没有进行中的拍卖</p>
+</div>
+
+<script src="/app.js"></script>
+<script>
+    var list = document.getElementById("list");
+    var empty = document.getElementById("empty");
+
+    function load() {
+        var keyword = document.getElementById("keyword").value;
+        api("/api/auctions?keyword=" + encodeURIComponent(keyword)).then(function (result) {
+            render((result.data && result.data.items) || []);
+        });
+    }
+
+    function render(items) {
+        list.innerHTML = "";
+        if (items.length === 0) {
+            empty.style.display = "block";
+            return;
+        }
+        empty.style.display = "none";
+
+        items.forEach(function (item) {
+            var card = document.createElement("a");
+            card.className = "auction-card";
+            card.href = "/auctions/" + item.id;
+            card.innerHTML =
+                '<div class="name">' + escapeHtml(item.itemName) + '</div>' +
+                '<div class="price">¥' + money(item.nowPrice) + ' <small>当前价</small></div>' +
+                '<div class="row"><span>出价 ' + item.bidCount + ' 次</span>' +
+                '<span class="countdown" data-end="' + escapeHtml(item.endTime) + '"></span></div>' +
+                '<div class="row"><span>卖家 ' + escapeHtml(item.sellerName) + '</span>' +
+                '<span>' + escapeHtml(item.buyNowPrice ? "一口价 ¥" + money(item.buyNowPrice) : "未设一口价") + '</span></div>';
+            list.appendChild(card);
+        });
+
+        tick();
+    }
+
+    function tick() {
+        var nodes = document.querySelectorAll(".countdown");
+        nodes.forEach(function (node) {
+            var text = remainText(node.getAttribute("data-end"));
+            node.innerText = text;
+            if (remainSeconds(node.getAttribute("data-end")) < 120) {
+                node.className = "countdown urgent";
+            } else {
+                node.className = "countdown";
+            }
+        });
+    }
+
+    document.getElementById("searchBtn").onclick = load;
+    document.getElementById("keyword").onkeydown = function (event) {
+        if (event.key === "Enter") {
+            load();
+        }
+    };
+
+    load();
+    setInterval(tick, 1000);
+</script>
+</body>
+</html>
